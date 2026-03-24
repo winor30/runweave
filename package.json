@@ -3,11 +3,34 @@
   "version": "0.1.0",
   "description": "Session orchestrator for Claude Code and Codex",
   "license": "MIT",
+  "author": "winor30",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/winor30/runweave.git"
+  },
+  "homepage": "https://github.com/winor30/runweave",
+  "bugs": "https://github.com/winor30/runweave/issues",
+  "keywords": [
+    "claude-code",
+    "codex",
+    "workflow",
+    "orchestrator",
+    "agent",
+    "session",
+    "cli",
+    "cron",
+    "automation"
+  ],
   "bin": {
-    "runweave": "dist/cli/bin.js"
+    "runweave": "dist/bin.mjs"
   },
   "type": "module",
-  "main": "dist/cli/main.js",
+  "main": "dist/bin.mjs",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsdown",
     "test": "vitest run",
@@ -16,7 +39,8 @@
     "format:check": "oxfmt --check .",
     "lint": "oxlint .",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test"
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test",
+    "prepublishOnly": "pnpm run check && pnpm run build"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.81",
