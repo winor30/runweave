@@ -1,0 +1,11 @@
+name: full-test
+description: "Full config test"
+trigger:
+  cron: "0 9 * * *"
+agent:
+  backend: codex
+  mode: supervised
+context:
+  repo: owner/repo
+prompt: |
+  Fix the issues in {{ repo }}.

@@ -1,0 +1,4 @@
+name: hello-world
+description: "Example workflow - manually triggered"
+prompt: |
+  Say hello and list the files in the current directory.

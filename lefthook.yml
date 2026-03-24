@@ -1,0 +1,11 @@
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      glob: "*.{js,ts,jsx,tsx,mjs,cjs}"
+      run: pnpm exec oxfmt --check --no-error-on-unmatched-pattern {staged_files}
+    lint:
+      glob: "*.{js,ts,jsx,tsx,mjs,cjs}"
+      run: pnpm exec oxlint {staged_files}
+    typecheck:
+      run: pnpm run typecheck

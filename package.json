@@ -1,0 +1,42 @@
+{
+  "name": "runweave",
+  "version": "0.1.0",
+  "description": "Session orchestrator for Claude Code and Codex",
+  "license": "MIT",
+  "bin": {
+    "runweave": "dist/cli/bin.js"
+  },
+  "type": "module",
+  "main": "dist/cli/main.js",
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "lint": "oxlint .",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.81",
+    "@openai/codex-sdk": "^0.116.0",
+    "croner": "^10.0.1",
+    "liquidjs": "^10.25.1",
+    "yaml": "^2.8.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "lefthook": "^2.1.4",
+    "oxfmt": "^0.41.0",
+    "oxlint": "^1.56.0",
+    "tsdown": "^0.21.4",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@10.24.0"
+}
