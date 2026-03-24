@@ -53,7 +53,9 @@ describe("SessionManager", () => {
   });
 
   afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
+    // Small delay to let drainAgentEvents background task finish writing
+    await new Promise((r) => setTimeout(r, 50));
+    await rm(tempDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   });
 
   it("starts a workflow session", async () => {
