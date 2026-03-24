@@ -116,18 +116,18 @@ prompt: |
 
 ### Default values
 
-| Field                    | Default                | Notes                                  |
-| ------------------------ | ---------------------- | -------------------------------------- |
-| `trigger`                | `{ type: manual }`     | Omit to run only via `runweave run`    |
-| `agent.backend`          | `claude-code`          | `claude-code` or `codex`              |
-| `agent.mode`             | `autonomous`           | See Agent Modes below                  |
-| `agent.model`            | SDK default            |                                        |
-| `agent.provider_options` | `{}`                   | Passed through to the SDK              |
-| `context`                | `{}`                   | Template variables for `{{ var }}`     |
-| `workspace.root`         | `.runweave-workspaces` |                                        |
-| `workspace.hooks`        | `{}`                   | `after_create`, `before_run`           |
-| `concurrency.max`        | `1`                    | Max concurrent runs of this workflow   |
-| `concurrency.on_conflict`| `skip`                 | `skip` or `queue`                      |
+| Field                     | Default                | Notes                                |
+| ------------------------- | ---------------------- | ------------------------------------ |
+| `trigger`                 | `{ type: manual }`     | Omit to run only via `runweave run`  |
+| `agent.backend`           | `claude-code`          | `claude-code` or `codex`             |
+| `agent.mode`              | `autonomous`           | See Agent Modes below                |
+| `agent.model`             | SDK default            |                                      |
+| `agent.provider_options`  | `{}`                   | Passed through to the SDK            |
+| `context`                 | `{}`                   | Template variables for `{{ var }}`   |
+| `workspace.root`          | `.runweave-workspaces` |                                      |
+| `workspace.hooks`         | `{}`                   | `after_create`, `before_run`         |
+| `concurrency.max`         | `1`                    | Max concurrent runs of this workflow |
+| `concurrency.on_conflict` | `skip`                 | `skip` or `queue`                    |
 
 ### Trigger syntax
 
@@ -249,12 +249,12 @@ Initialize a runweave project. Creates `workflows/example.yaml` and `.gitignore`
 
 ## Agent Modes
 
-| Mode          | Description                                                       | Use case                            |
-| ------------- | ----------------------------------------------------------------- | ----------------------------------- |
-| `autonomous`  | Agent runs without approval prompts (default)                     | Daemon / cron jobs                  |
-| `full-auto`   | Same as `autonomous` but with unrestricted network/filesystem access | Tasks requiring full system access |
-| `supervised`  | Pauses on tool calls outside the allowlist; resume with `attach`  | Tasks where human oversight matters |
-| `readonly`    | Restricted to read-only tools                                     | Audits, reports, investigations     |
+| Mode         | Description                                                          | Use case                            |
+| ------------ | -------------------------------------------------------------------- | ----------------------------------- |
+| `autonomous` | Agent runs without approval prompts (default)                        | Daemon / cron jobs                  |
+| `full-auto`  | Same as `autonomous` but with unrestricted network/filesystem access | Tasks requiring full system access  |
+| `supervised` | Pauses on tool calls outside the allowlist; resume with `attach`     | Tasks where human oversight matters |
+| `readonly`   | Restricted to read-only tools                                        | Audits, reports, investigations     |
 
 When a `supervised` session is waiting for input, `runweave status` shows `needs_input`. Use `runweave attach` to review and respond.
 

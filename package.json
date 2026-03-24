@@ -2,35 +2,35 @@
   "name": "runweave",
   "version": "0.1.0",
   "description": "Session orchestrator for Claude Code and Codex",
+  "keywords": [
+    "agent",
+    "automation",
+    "claude-code",
+    "cli",
+    "codex",
+    "cron",
+    "orchestrator",
+    "session",
+    "workflow"
+  ],
+  "homepage": "https://github.com/winor30/runweave",
+  "bugs": "https://github.com/winor30/runweave/issues",
   "license": "MIT",
   "author": "winor30",
   "repository": {
     "type": "git",
     "url": "https://github.com/winor30/runweave.git"
   },
-  "homepage": "https://github.com/winor30/runweave",
-  "bugs": "https://github.com/winor30/runweave/issues",
-  "keywords": [
-    "claude-code",
-    "codex",
-    "workflow",
-    "orchestrator",
-    "agent",
-    "session",
-    "cli",
-    "cron",
-    "automation"
-  ],
   "bin": {
     "runweave": "dist/bin.mjs"
   },
-  "type": "module",
-  "main": "dist/bin.mjs",
   "files": [
     "dist",
     "README.md",
     "LICENSE"
   ],
+  "type": "module",
+  "main": "dist/bin.mjs",
   "scripts": {
     "build": "tsdown",
     "test": "vitest run",
