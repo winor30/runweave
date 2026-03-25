@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/winor30/runweave/main/schema.json
 name: hello-world
 description: "Example workflow - manually triggered"
 prompt: |

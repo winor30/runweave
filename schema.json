@@ -1,0 +1,185 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Runweave Workflow",
+  "description": "Schema for runweave workflow YAML files. See https://github.com/winor30/runweave",
+  "type": "object",
+  "required": ["name", "prompt"],
+  "additionalProperties": true,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique workflow name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of the workflow"
+    },
+    "trigger": {
+      "description": "When to run this workflow. Defaults to manual.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "manual" }
+          },
+          "required": ["type"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "cron" },
+            "schedule": {
+              "type": "string",
+              "description": "Cron expression (e.g. \"0 9 * * *\")"
+            }
+          },
+          "required": ["type", "schedule"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cron": {
+              "type": "string",
+              "description": "Cron expression shorthand (e.g. \"0 9 * * *\")"
+            }
+          },
+          "required": ["cron"],
+          "additionalProperties": false
+        }
+      ],
+      "default": { "type": "manual" }
+    },
+    "agent": {
+      "type": "object",
+      "description": "Agent backend configuration",
+      "properties": {
+        "backend": {
+          "type": "string",
+          "enum": ["claude-code", "codex"],
+          "default": "claude-code",
+          "description": "Which AI agent to use"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["autonomous", "full-auto", "supervised", "readonly"],
+          "default": "autonomous",
+          "description": "Permission mode for the agent"
+        },
+        "model": {
+          "type": "string",
+          "description": "Model override (e.g. \"haiku\", \"o4-mini\")"
+        },
+        "provider_options": {
+          "type": "object",
+          "description": "SDK-specific options passed through to the agent backend",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "description": "Template variables available in the prompt via {{ key }}. Values starting with $ are resolved as environment variables.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "description": "Workspace isolation settings",
+      "properties": {
+        "root": {
+          "type": "string",
+          "default": ".runweave-workspaces",
+          "description": "Root directory for session workspaces"
+        },
+        "hooks": {
+          "type": "object",
+          "description": "Shell commands to run at workspace lifecycle events",
+          "properties": {
+            "after_create": {
+              "type": "string",
+              "description": "Command to run after workspace directory is created"
+            },
+            "before_run": {
+              "type": "string",
+              "description": "Command to run before the agent session starts"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "concurrency": {
+      "type": "object",
+      "description": "Concurrency control for this workflow",
+      "properties": {
+        "max": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Maximum concurrent sessions for this workflow"
+        },
+        "on_conflict": {
+          "type": "string",
+          "enum": ["skip", "queue"],
+          "default": "skip",
+          "description": "What to do when concurrency limit is reached"
+        }
+      },
+      "additionalProperties": false
+    },
+    "notify": {
+      "type": "object",
+      "description": "Notification settings (overrides global config)",
+      "properties": {
+        "channels": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "desktop" }
+                },
+                "required": ["type"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "webhook" },
+                  "url": {
+                    "type": "string",
+                    "description": "Webhook URL (Slack/Discord compatible)"
+                  }
+                },
+                "required": ["type", "url"],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "on": {
+          "type": "object",
+          "properties": {
+            "completed": { "type": "boolean", "default": true },
+            "failed": { "type": "boolean", "default": true },
+            "needs_input": { "type": "boolean", "default": true }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Prompt template sent to the agent. Supports Liquid syntax ({{ variable }})."
+    }
+  }
+}
