@@ -246,43 +246,6 @@ Initialize a runweave project. Creates `workflows/example.yaml` and `.gitignore`
 
 When a `supervised` session is waiting for input, `runweave status` shows `needs_input`. Use `runweave attach` to review and respond.
 
-## Notification
-
-Notification configuration is not fully wired into the daemon path in `v0.1.0` yet.
-The config shape and notifier implementations are included so the interface can stabilize early.
-
-### Global configuration
-
-Create `$HOME/.runweave/config.yaml`:
-
-```yaml
-notify:
-  channels:
-    - type: desktop
-    - type: webhook
-      url: $SLACK_WEBHOOK_URL
-  on:
-    completed: true
-    failed: true
-    needs_input: true
-```
-
-Desktop notifications use `osascript` on macOS and `notify-send` on Linux. Webhook sends an HTTP POST with a Slack/Discord-compatible JSON payload.
-
-### Per-workflow override
-
-```yaml
-# workflows/critical-fix.yaml
-notify:
-  channels:
-    - type: webhook
-      url: $PAGERDUTY_WEBHOOK
-  on:
-    failed: true
-```
-
-Per-workflow `notify` is intended to replace the global configuration for that workflow once end-to-end notification wiring lands.
-
 ## License
 
 MIT
