@@ -1,6 +1,6 @@
 {
   "name": "runweave",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Session orchestrator for Claude Code and Codex",
   "keywords": [
     "agent",
