@@ -47,6 +47,13 @@ describe("init command", () => {
     expect(content).toContain(".runweave-workspaces/");
   });
 
+  it(".gitignore includes .runweave-sessions/", async () => {
+    await initCommand([tempDir]);
+    const { readFile } = await import("node:fs/promises");
+    const content = await readFile(join(tempDir, ".gitignore"), "utf-8");
+    expect(content).toContain(".runweave-sessions/");
+  });
+
   it("prints confirmation messages", async () => {
     await initCommand([tempDir]);
     expect(consoleOutput.some((line) => line.toLowerCase().includes("initialized"))).toBe(true);

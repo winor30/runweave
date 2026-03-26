@@ -106,20 +106,23 @@ prompt: |
   Fix the highest-priority ones and open a PR for each fix.
 ```
 
+`notify` is reserved for notification configuration. The notifier implementations
+exist in the codebase, but daemon wiring is still being finalized in the current release.
+
 ### Default values
 
-| Field                     | Default                | Notes                                |
-| ------------------------- | ---------------------- | ------------------------------------ |
-| `trigger`                 | `{ type: manual }`     | Omit to run only via `runweave run`  |
-| `agent.backend`           | `claude-code`          | `claude-code` or `codex`             |
-| `agent.mode`              | `autonomous`           | See Agent Modes below                |
-| `agent.model`             | SDK default            |                                      |
-| `agent.provider_options`  | `{}`                   | Passed through to the SDK            |
-| `context`                 | `{}`                   | Template variables for `{{ var }}`   |
-| `workspace.root`          | `.runweave-workspaces` |                                      |
-| `workspace.hooks`         | `{}`                   | `after_create`, `before_run`         |
-| `concurrency.max`         | `1`                    | Max concurrent runs of this workflow |
-| `concurrency.on_conflict` | `skip`                 | `skip` or `queue`                    |
+| Field                     | Default                | Notes                                                  |
+| ------------------------- | ---------------------- | ------------------------------------------------------ |
+| `trigger`                 | `{ type: manual }`     | Omit to run only via `runweave run`                    |
+| `agent.backend`           | `claude-code`          | `claude-code` or `codex`                               |
+| `agent.mode`              | `autonomous`           | See Agent Modes below                                  |
+| `agent.model`             | SDK default            |                                                        |
+| `agent.provider_options`  | `{}`                   | Passed through to the SDK                              |
+| `context`                 | `{}`                   | Template variables for `{{ var }}`                     |
+| `workspace.root`          | `.runweave-workspaces` |                                                        |
+| `workspace.hooks`         | `{}`                   | `after_create`, `before_run`                           |
+| `concurrency.max`         | `1`                    | Max concurrent runs of this workflow                   |
+| `concurrency.on_conflict` | `skip`                 | `skip` today; `queue` is reserved for a future release |
 
 ### Trigger syntax
 
@@ -237,7 +240,7 @@ runweave validate workflows/
 runweave init [dir]
 ```
 
-Initialize a runweave project. Creates `workflows/example.yaml` and `.gitignore` in `dir` (default: current directory). Existing files are not overwritten.
+Initialize a runweave project. Creates `workflows/example.yaml` and `.gitignore` in `dir` (default: current directory). The generated `.gitignore` excludes runweave workspace and session directories. Existing files are not overwritten.
 
 ## Agent Modes
 
@@ -251,6 +254,9 @@ Initialize a runweave project. Creates `workflows/example.yaml` and `.gitignore`
 When a `supervised` session is waiting for input, `runweave status` shows `needs_input`. Use `runweave attach` to review and respond.
 
 ## Notification
+
+Notification configuration is not fully wired into the daemon path in `v0.1.0` yet.
+The config shape and notifier implementations are included so the interface can stabilize early.
 
 ### Global configuration
 
@@ -282,7 +288,7 @@ notify:
     failed: true
 ```
 
-Per-workflow `notify` replaces the global configuration for that workflow.
+Per-workflow `notify` is intended to replace the global configuration for that workflow once end-to-end notification wiring lands.
 
 ## License
 

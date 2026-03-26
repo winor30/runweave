@@ -9,6 +9,7 @@ prompt: |
 `;
 
 const GITIGNORE_CONTENT = `.runweave-workspaces/
+.runweave-sessions/
 node_modules/
 dist/
 `;
