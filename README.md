@@ -23,14 +23,7 @@ Session orchestrator for Claude Code and Codex — run AI agent workflows from Y
 ## Installation
 
 ```bash
-# From source
-git clone https://github.com/winor30/runweave.git
-cd runweave
-pnpm install
-pnpm run build
-
-# Link globally
-pnpm link --global
+npm install -g runweave
 ```
 
 ## Quick Start
