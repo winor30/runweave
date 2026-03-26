@@ -2,7 +2,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
 
-const EXAMPLE_WORKFLOW = `name: hello-world
+const EXAMPLE_WORKFLOW = `# yaml-language-server: $schema=https://raw.githubusercontent.com/winor30/runweave/main/schema.json
+name: hello-world
 description: "Example workflow - manually triggered"
 prompt: |
   Say hello and list the files in the current directory.
