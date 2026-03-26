@@ -37,6 +37,7 @@ export class CodexBackend implements AgentBackend {
     const threadOptions: ThreadOptions = {
       approvalPolicy: config.approvalPolicy,
       sandboxMode: config.sandboxMode,
+      ...(opts.model !== undefined ? { model: opts.model } : {}),
     };
 
     const thread = codex.startThread(threadOptions);

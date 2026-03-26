@@ -44,7 +44,9 @@ describe("init command", () => {
     await initCommand([tempDir]);
     const { readFile } = await import("node:fs/promises");
     const content = await readFile(join(tempDir, "workflows", "example.yaml"), "utf-8");
-    expect(content).toContain("# yaml-language-server: $schema=https://raw.githubusercontent.com/winor30/runweave/main/schema.json");
+    expect(content).toContain(
+      "# yaml-language-server: $schema=https://raw.githubusercontent.com/winor30/runweave/main/schema.json",
+    );
   });
 
   it(".gitignore includes .runweave-workspaces/", async () => {

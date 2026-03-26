@@ -139,6 +139,38 @@ describe("CodexBackend", () => {
     expect(session.status).toBe("completed");
   });
 
+  it("passes model to threadOptions when provided", async () => {
+    await backend.startSession({
+      prompt: "Fix the bug",
+      workspacePath: "/tmp/ws",
+      mode: "autonomous",
+      model: "o3-mini",
+    });
+
+    const codexInstance = vi.mocked(Codex).mock.results[0]?.value as {
+      startThread: ReturnType<typeof vi.fn>;
+    };
+    expect(codexInstance.startThread).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "o3-mini",
+      }),
+    );
+  });
+
+  it("omits model from threadOptions when not provided", async () => {
+    await backend.startSession({
+      prompt: "Fix the bug",
+      workspacePath: "/tmp/ws",
+      mode: "autonomous",
+    });
+
+    const codexInstance = vi.mocked(Codex).mock.results[0]?.value as {
+      startThread: ReturnType<typeof vi.fn>;
+    };
+    const callArg = codexInstance.startThread.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(callArg).not.toHaveProperty("model");
+  });
+
   it("stopSession resolves without error", async () => {
     await expect(backend.stopSession("thread-abc")).resolves.toBeUndefined();
   });
