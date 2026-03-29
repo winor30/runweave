@@ -82,8 +82,7 @@ export async function attachCommand(args: string[], storeDir?: string): Promise<
         type: status,
         workflow: workflowName,
         sessionId: sid,
-        message:
-          status === "completed" ? "Workflow completed successfully" : "Workflow failed",
+        message: status === "completed" ? "Workflow completed successfully" : "Workflow failed",
       };
       await Promise.allSettled(notifiers.map((n) => n.send(event)));
     };

@@ -105,10 +105,7 @@ describe("attach command", () => {
     const { SessionManager } = await import("../../src/session/manager.js");
     const resumeSpy = vi.spyOn(SessionManager.prototype, "resumeSession");
 
-    await attachCommand(
-      ["attach-abc", "--message", "ping", "--notify-desktop"],
-      tempDir,
-    );
+    await attachCommand(["attach-abc", "--message", "ping", "--notify-desktop"], tempDir);
 
     expect(resumeSpy).toHaveBeenCalledTimes(1);
     const [, , , onFinish] = resumeSpy.mock.calls[0]!;
