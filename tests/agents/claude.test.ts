@@ -397,7 +397,7 @@ describe("ClaudeBackend", () => {
 
       // No event with type "system" or "message" wrapping the init should appear
       const systemEvents = events.filter(
-        (e) => e.type === "message" && (e.data["type"] === "system"),
+        (e) => e.type === "message" && e.data["type"] === "system",
       );
       expect(systemEvents).toHaveLength(0);
     });

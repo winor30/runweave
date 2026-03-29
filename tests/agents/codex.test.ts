@@ -213,9 +213,10 @@ describe("CodexBackend", () => {
       items: Array<Record<string, unknown>>,
       finalResponse = "done",
     ): Promise<Array<{ type: string; data: Record<string, unknown> }>> {
-      vi.mocked(Codex).mockImplementationOnce(function (
-        this: { startThread: ReturnType<typeof vi.fn>; resumeThread: ReturnType<typeof vi.fn> },
-      ) {
+      vi.mocked(Codex).mockImplementationOnce(function (this: {
+        startThread: ReturnType<typeof vi.fn>;
+        resumeThread: ReturnType<typeof vi.fn>;
+      }) {
         const thread = {
           get id() {
             return "thread-map";
@@ -286,9 +287,7 @@ describe("CodexBackend", () => {
     });
 
     it("falls back to message event for unrecognized item types", async () => {
-      const events = await collectEvents([
-        { type: "weird_unknown_type", payload: "data" },
-      ]);
+      const events = await collectEvents([{ type: "weird_unknown_type", payload: "data" }]);
 
       const messageEvent = events.find((e) => e.type === "message");
       expect(messageEvent).toBeDefined();
