@@ -1,6 +1,7 @@
 // src/agents/claude.ts
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentBackend, AgentSession, AgentEvent, StartSessionOptions } from "./types.js";
+import { CLAUDE_VALID_EFFORTS } from "../shared/types.js";
 import type { AgentEffortLevel, AgentMode } from "../shared/types.js";
 
 // Maps runweave AgentMode to the Claude Agent SDK permissionMode and related options.
@@ -29,27 +30,17 @@ function mapModeToClaudeOptions(mode: AgentMode): Record<string, unknown> {
   }
 }
 
-// Maps runweave effort level to the Claude Agent SDK effort value.
-// Schema validation rejects "minimal" and "xhigh" (Codex-only) before this point,
-// so they should never arrive here. The explicit throws guard against bypassed validation.
-function mapEffortToClaude(effort: AgentEffortLevel): "low" | "medium" | "high" | "max" {
-  switch (effort) {
-    case "low":
-      return "low";
-    case "medium":
-      return "medium";
-    case "high":
-      return "high";
-    case "max":
-      return "max";
-    case "minimal":
-    case "xhigh":
-      throw new Error(`effort '${effort}' is not supported by claude-code backend`);
-    default: {
-      const _exhaustive: never = effort;
-      throw new Error(`Unknown effort level: ${_exhaustive}`);
-    }
+// Validates and casts effort to the Claude-supported subset.
+// Schema validation normally rejects unsupported values before this point;
+// the throw here guards against bypassed validation.
+const CLAUDE_EFFORT_SET = new Set<string>(CLAUDE_VALID_EFFORTS);
+type ClaudeEffortLevel = (typeof CLAUDE_VALID_EFFORTS)[number];
+
+function mapEffortToClaude(effort: AgentEffortLevel): ClaudeEffortLevel {
+  if (!CLAUDE_EFFORT_SET.has(effort)) {
+    throw new Error(`effort '${effort}' is not supported by claude-code backend`);
   }
+  return effort as ClaudeEffortLevel;
 }
 
 export class ClaudeBackend implements AgentBackend {

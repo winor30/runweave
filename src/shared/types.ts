@@ -13,9 +13,12 @@ export const AGENT_MODES = ["autonomous", "full-auto", "supervised", "readonly"]
 
 export const AGENT_BACKENDS = ["claude-code", "codex"] as const;
 
-// All effort levels across all backends. "minimal" and "xhigh" are Codex-native;
-// "max" is Claude-native. Cross-backend values are mapped to the nearest equivalent
-// at the backend layer.
+// Per-backend valid effort levels — single source of truth for each backend.
+// AGENT_EFFORT_LEVELS is their union and is used only for schema enum validation.
+// Cross-backend values (e.g. "max" on codex) are rejected at parse time.
+export const CLAUDE_VALID_EFFORTS = ["low", "medium", "high", "max"] as const;
+export const CODEX_VALID_EFFORTS = ["minimal", "low", "medium", "high", "xhigh"] as const;
+
 export const AGENT_EFFORT_LEVELS = ["minimal", "low", "medium", "high", "max", "xhigh"] as const;
 
 // --- Derived Types ---

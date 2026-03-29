@@ -7,6 +7,7 @@ import type {
   SandboxMode,
 } from "@openai/codex-sdk";
 import type { AgentBackend, AgentSession, AgentEvent, StartSessionOptions } from "./types.js";
+import { CODEX_VALID_EFFORTS } from "../shared/types.js";
 import type { AgentEffortLevel, AgentMode } from "../shared/types.js";
 
 interface CodexModeConfig {
@@ -32,28 +33,16 @@ function mapModeToCodexConfig(mode: AgentMode): CodexModeConfig {
   }
 }
 
-// Maps runweave effort level to the Codex SDK ModelReasoningEffort value.
-// Schema validation rejects "max" (Claude-only) before this point, so it should
-// never arrive here. The explicit throw guards against bypassed validation.
+// Validates and casts effort to the Codex-supported subset (ModelReasoningEffort).
+// Schema validation normally rejects unsupported values before this point;
+// the throw here guards against bypassed validation.
+const CODEX_EFFORT_SET = new Set<string>(CODEX_VALID_EFFORTS);
+
 function mapEffortToCodex(effort: AgentEffortLevel): ModelReasoningEffort {
-  switch (effort) {
-    case "minimal":
-      return "minimal";
-    case "low":
-      return "low";
-    case "medium":
-      return "medium";
-    case "high":
-      return "high";
-    case "xhigh":
-      return "xhigh";
-    case "max":
-      throw new Error(`effort 'max' is not supported by codex backend`);
-    default: {
-      const _exhaustive: never = effort;
-      throw new Error(`Unknown effort level: ${_exhaustive}`);
-    }
+  if (!CODEX_EFFORT_SET.has(effort)) {
+    throw new Error(`effort '${effort}' is not supported by codex backend`);
   }
+  return effort as ModelReasoningEffort;
 }
 
 export class CodexBackend implements AgentBackend {

@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { AGENT_BACKENDS, AGENT_EFFORT_LEVELS, AGENT_MODES } from "../shared/types.js";
+import {
+  AGENT_BACKENDS,
+  AGENT_EFFORT_LEVELS,
+  AGENT_MODES,
+  CLAUDE_VALID_EFFORTS,
+  CODEX_VALID_EFFORTS,
+} from "../shared/types.js";
 import {
   DEFAULT_AGENT,
   DEFAULT_CONCURRENCY,
@@ -22,9 +28,9 @@ const triggerExplicit = z.discriminatedUnion("type", [
 // before the explicit discriminated union catches it as an error.
 const triggerSchema = z.union([triggerCronShorthand, triggerExplicit]).default(DEFAULT_TRIGGER);
 
-// Effort levels that are only valid for a specific backend.
-const CODEX_ONLY_EFFORTS = new Set(["minimal", "xhigh"]);
-const CLAUDE_ONLY_EFFORTS = new Set(["max"]);
+// Derived from valid sets: effort values rejected by each backend.
+const CLAUDE_EFFORT_SET = new Set<string>(CLAUDE_VALID_EFFORTS);
+const CODEX_EFFORT_SET = new Set<string>(CODEX_VALID_EFFORTS);
 
 const agentSchema = z
   .object({
@@ -37,18 +43,18 @@ const agentSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.effort === undefined) return;
-    if (data.backend === "claude-code" && CODEX_ONLY_EFFORTS.has(data.effort)) {
+    if (data.backend === "claude-code" && !CLAUDE_EFFORT_SET.has(data.effort)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["effort"],
-        message: `effort '${data.effort}' is not supported by claude-code backend. Supported values: low, medium, high, max`,
+        message: `effort '${data.effort}' is not supported by claude-code backend. Supported values: ${CLAUDE_VALID_EFFORTS.join(", ")}`,
       });
     }
-    if (data.backend === "codex" && CLAUDE_ONLY_EFFORTS.has(data.effort)) {
+    if (data.backend === "codex" && !CODEX_EFFORT_SET.has(data.effort)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["effort"],
-        message: `effort '${data.effort}' is not supported by codex backend. Supported values: minimal, low, medium, high, xhigh`,
+        message: `effort '${data.effort}' is not supported by codex backend. Supported values: ${CODEX_VALID_EFFORTS.join(", ")}`,
       });
     }
   })
