@@ -90,12 +90,60 @@ export class ClaudeBackend implements AgentBackend {
     // the returned AgentSession.id is populated before the caller iterates events.
     async function* makeEventStream(): AsyncGenerator<AgentEvent> {
       for await (const message of stream) {
-        if (message["type"] === "system" && message["subtype"] === "init") {
+        const msgType = message["type"];
+
+        // system/init: extract session ID, do not emit
+        if (msgType === "system" && message["subtype"] === "init") {
           sessionId = message["session_id"] as string;
+          continue;
         }
-        const eventType: AgentEvent["type"] =
-          message["type"] === "result" ? "completed" : "message";
-        yield { type: eventType, data: message };
+
+        // assistant: one event per content block
+        if (msgType === "assistant") {
+          const content = message["content"];
+          if (!Array.isArray(content)) {
+            yield { type: "message", data: message };
+            continue;
+          }
+          for (const block of content as Array<Record<string, unknown>>) {
+            try {
+              if (block["type"] === "text") {
+                yield {
+                  type: "assistant_text",
+                  data: { text: block["text"] as string },
+                };
+              } else if (block["type"] === "tool_use") {
+                yield {
+                  type: "tool_use",
+                  data: {
+                    tool: block["name"] as string,
+                    input: (block["input"] ?? {}) as Record<string, unknown>,
+                  },
+                };
+              }
+              // unknown block types are silently skipped
+            } catch {
+              // block parse failure: skip block, session continues
+            }
+          }
+          continue;
+        }
+
+        // result: completed event
+        if (msgType === "result") {
+          const turns = message["num_turns"] as number | undefined;
+          const cost_usd = message["total_cost_usd"] as number | undefined;
+          const is_error = message["is_error"] as boolean | undefined;
+          const data: Record<string, unknown> = {};
+          if (turns !== undefined) data["turns"] = turns;
+          if (cost_usd !== undefined) data["cost_usd"] = cost_usd;
+          if (is_error !== undefined) data["is_error"] = is_error;
+          yield { type: "completed", data };
+          continue;
+        }
+
+        // fallback
+        yield { type: "message", data: message };
       }
     }
 

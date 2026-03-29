@@ -16,6 +16,7 @@ function createMockBackend(): AgentBackend {
     // Never-resolving stream: the session stays "running" for the lifetime of
     // the test, which is the realistic state that concurrency checks depend on.
     events: {
+      // oxlint-disable-next-line require-yield -- intentional: stream never resolves to keep session "running"
       async *[Symbol.asyncIterator]() {
         await new Promise<void>(() => {});
       },
@@ -235,5 +236,31 @@ describe("SessionManager", () => {
       const stored = await store.read(session!.session_id);
       expect(stored!.status).toBe("completed");
     });
+  });
+
+  it("appends a prompt event as the second event after started", async () => {
+    const wf = createMinimalWorkflow({
+      workspace: { root: join(tempDir, "workspaces"), hooks: {} },
+      prompt: "Do something useful",
+    });
+    const session = await manager.startWorkflow(wf, mockBackend);
+
+    const events = await store.readEvents(session!.session_id);
+    expect(events.length).toBeGreaterThanOrEqual(2);
+    expect(events[0]!.type).toBe("started");
+    expect(events[1]!.type).toBe("prompt");
+  });
+
+  it("prompt event text matches the rendered prompt exactly", async () => {
+    const wf = createMinimalWorkflow({
+      workspace: { root: join(tempDir, "workspaces"), hooks: {} },
+      prompt: "Fix the critical bug in production",
+    });
+    const session = await manager.startWorkflow(wf, mockBackend);
+
+    const events = await store.readEvents(session!.session_id);
+    const promptEvent = events.find((e) => e.type === "prompt");
+    expect(promptEvent).toBeDefined();
+    expect(promptEvent!["text"]).toBe("Fix the critical bug in production");
   });
 });

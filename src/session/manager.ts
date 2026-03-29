@@ -92,6 +92,11 @@ export class SessionManager {
       type: "started",
       workflow: wf.name,
     });
+    await this.store.appendEvent(sessionId, {
+      ts: new Date().toISOString(),
+      type: "prompt",
+      text: renderedPrompt,
+    });
 
     this.logger.info("Session started", { workflow: wf.name, session_id: sessionId });
 

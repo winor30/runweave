@@ -101,8 +101,65 @@ function makeCompletedEvents(result: {
   return {
     async *[Symbol.asyncIterator]() {
       for (const item of result.items) {
+        const itemType = item["type"];
+        const msg = item["message"] as Record<string, unknown> | undefined;
+
+        // assistant message item
+        if (
+          itemType === "message" &&
+          msg?.["role"] === "assistant" &&
+          typeof msg?.["content"] === "string"
+        ) {
+          yield {
+            type: "assistant_text" as const,
+            data: { text: msg["content"] as string },
+          };
+          continue;
+        }
+
+        // items with tool_calls array
+        const toolCalls = item["tool_calls"] as Array<Record<string, unknown>> | undefined;
+        if (Array.isArray(toolCalls)) {
+          for (const tc of toolCalls) {
+            const fn = tc["function"] as Record<string, unknown> | undefined;
+            const toolName = (fn?.["name"] ?? tc["name"] ?? "unknown") as string;
+            let toolInput: Record<string, unknown> = {};
+            const rawArgs = fn?.["arguments"] ?? tc["arguments"];
+            if (typeof rawArgs === "string") {
+              try {
+                toolInput = JSON.parse(rawArgs) as Record<string, unknown>;
+              } catch {
+                toolInput = { raw: rawArgs };
+              }
+            } else if (typeof rawArgs === "object" && rawArgs !== null) {
+              toolInput = rawArgs as Record<string, unknown>;
+            }
+            yield { type: "tool_use" as const, data: { tool: toolName, input: toolInput } };
+          }
+          continue;
+        }
+
+        // function_call type items
+        if (itemType === "function_call") {
+          const toolName = (item["name"] ?? "unknown") as string;
+          const rawArgs = item["arguments"];
+          let toolInput: Record<string, unknown> = {};
+          if (typeof rawArgs === "string") {
+            try {
+              toolInput = JSON.parse(rawArgs) as Record<string, unknown>;
+            } catch {
+              toolInput = { raw: rawArgs };
+            }
+          }
+          yield { type: "tool_use" as const, data: { tool: toolName, input: toolInput } };
+          continue;
+        }
+
+        // fallback
         yield { type: "message" as const, data: item };
       }
+
+      // always emit completed at the end
       yield {
         type: "completed" as const,
         data: { finalResponse: result.finalResponse },
