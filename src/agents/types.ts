@@ -1,5 +1,5 @@
 // src/agents/types.ts
-import type { AgentMode } from "../shared/types.js";
+import type { AgentEffortLevel, AgentMode } from "../shared/types.js";
 
 export interface AgentBackend {
   readonly provider: "claude-code" | "codex";
@@ -19,6 +19,7 @@ export interface StartSessionOptions {
   workspacePath: string;
   mode: AgentMode;
   model?: string;
+  effort?: AgentEffortLevel;
   providerOptions?: Record<string, unknown>;
 }
 

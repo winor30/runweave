@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AGENT_BACKENDS, AGENT_MODES } from "../shared/types.js";
+import { AGENT_BACKENDS, AGENT_EFFORT_LEVELS, AGENT_MODES } from "../shared/types.js";
 import {
   DEFAULT_AGENT,
   DEFAULT_CONCURRENCY,
@@ -22,13 +22,35 @@ const triggerExplicit = z.discriminatedUnion("type", [
 // before the explicit discriminated union catches it as an error.
 const triggerSchema = z.union([triggerCronShorthand, triggerExplicit]).default(DEFAULT_TRIGGER);
 
+// Effort levels that are only valid for a specific backend.
+const CODEX_ONLY_EFFORTS = new Set(["minimal", "xhigh"]);
+const CLAUDE_ONLY_EFFORTS = new Set(["max"]);
+
 const agentSchema = z
   .object({
     backend: z.enum(AGENT_BACKENDS).default(DEFAULT_AGENT.backend),
     mode: z.enum(AGENT_MODES).default(DEFAULT_AGENT.mode),
     model: z.string().optional(),
+    effort: z.enum(AGENT_EFFORT_LEVELS).optional(),
     // Zod v4 requires two arguments for z.record; single-arg form breaks on parse
     provider_options: z.record(z.string(), z.unknown()).default(DEFAULT_AGENT.provider_options),
+  })
+  .superRefine((data, ctx) => {
+    if (data.effort === undefined) return;
+    if (data.backend === "claude-code" && CODEX_ONLY_EFFORTS.has(data.effort)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["effort"],
+        message: `effort '${data.effort}' is not supported by claude-code backend. Supported values: low, medium, high, max`,
+      });
+    }
+    if (data.backend === "codex" && CLAUDE_ONLY_EFFORTS.has(data.effort)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["effort"],
+        message: `effort '${data.effort}' is not supported by codex backend. Supported values: minimal, low, medium, high, xhigh`,
+      });
+    }
   })
   .default(DEFAULT_AGENT);
 

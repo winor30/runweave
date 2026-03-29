@@ -1,8 +1,13 @@
 // src/agents/codex.ts
 import { Codex } from "@openai/codex-sdk";
-import type { ThreadOptions, ApprovalMode, SandboxMode } from "@openai/codex-sdk";
+import type {
+  ModelReasoningEffort,
+  ThreadOptions,
+  ApprovalMode,
+  SandboxMode,
+} from "@openai/codex-sdk";
 import type { AgentBackend, AgentSession, AgentEvent, StartSessionOptions } from "./types.js";
-import type { AgentMode } from "../shared/types.js";
+import type { AgentEffortLevel, AgentMode } from "../shared/types.js";
 
 interface CodexModeConfig {
   approvalPolicy: ApprovalMode;
@@ -27,6 +32,30 @@ function mapModeToCodexConfig(mode: AgentMode): CodexModeConfig {
   }
 }
 
+// Maps runweave effort level to the Codex SDK ModelReasoningEffort value.
+// Schema validation rejects "max" (Claude-only) before this point, so it should
+// never arrive here. The explicit throw guards against bypassed validation.
+function mapEffortToCodex(effort: AgentEffortLevel): ModelReasoningEffort {
+  switch (effort) {
+    case "minimal":
+      return "minimal";
+    case "low":
+      return "low";
+    case "medium":
+      return "medium";
+    case "high":
+      return "high";
+    case "xhigh":
+      return "xhigh";
+    case "max":
+      throw new Error(`effort 'max' is not supported by codex backend`);
+    default: {
+      const _exhaustive: never = effort;
+      throw new Error(`Unknown effort level: ${_exhaustive}`);
+    }
+  }
+}
+
 export class CodexBackend implements AgentBackend {
   readonly provider = "codex" as const;
 
@@ -38,6 +67,7 @@ export class CodexBackend implements AgentBackend {
       approvalPolicy: config.approvalPolicy,
       sandboxMode: config.sandboxMode,
       ...(opts.model !== undefined ? { model: opts.model } : {}),
+      ...(opts.effort !== undefined ? { modelReasoningEffort: mapEffortToCodex(opts.effort) } : {}),
     };
 
     const thread = codex.startThread(threadOptions);

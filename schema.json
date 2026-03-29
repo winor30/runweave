@@ -72,6 +72,11 @@
           "type": "string",
           "description": "Model override (e.g. \"haiku\", \"o4-mini\")"
         },
+        "effort": {
+          "type": "string",
+          "enum": ["minimal", "low", "medium", "high", "max", "xhigh"],
+          "description": "Reasoning effort level. 'minimal' and 'xhigh' are Codex-native; when used with claude-code they are mapped to the nearest equivalent ('low' and 'max' respectively). 'max' maps to 'xhigh' on codex. Omit to use the backend's default."
+        },
         "provider_options": {
           "type": "object",
           "description": "SDK-specific options passed through to the agent backend",

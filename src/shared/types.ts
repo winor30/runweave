@@ -13,11 +13,17 @@ export const AGENT_MODES = ["autonomous", "full-auto", "supervised", "readonly"]
 
 export const AGENT_BACKENDS = ["claude-code", "codex"] as const;
 
+// All effort levels across all backends. "minimal" and "xhigh" are Codex-native;
+// "max" is Claude-native. Cross-backend values are mapped to the nearest equivalent
+// at the backend layer.
+export const AGENT_EFFORT_LEVELS = ["minimal", "low", "medium", "high", "max", "xhigh"] as const;
+
 // --- Derived Types ---
 
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
 export type AgentMode = (typeof AGENT_MODES)[number];
 export type AgentBackendName = (typeof AGENT_BACKENDS)[number];
+export type AgentEffortLevel = (typeof AGENT_EFFORT_LEVELS)[number];
 
 // --- Trigger ---
 
@@ -29,6 +35,7 @@ export interface AgentConfig {
   backend: AgentBackendName;
   mode: AgentMode;
   model?: string;
+  effort?: AgentEffortLevel;
   provider_options: Record<string, unknown>;
 }
 

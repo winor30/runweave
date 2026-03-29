@@ -237,6 +237,50 @@ describe("ClaudeBackend", () => {
     expect(completedEvent).toBeDefined();
   });
 
+  it("passes effort to SDK options when provided", async () => {
+    const mockMessages = (async function* () {
+      yield { type: "system", subtype: "init", session_id: "sess-effort" };
+      yield { type: "result", result: "done" };
+    })();
+
+    vi.mocked(query).mockReturnValue(mockMessages as ReturnType<typeof query>);
+
+    await backend.startSession({
+      prompt: "High effort task",
+      workspacePath: "/tmp/ws",
+      mode: "autonomous",
+      effort: "high",
+    });
+
+    expect(query).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          effort: "high",
+        }),
+      }),
+    );
+  });
+
+  it("omits effort from SDK options when not provided", async () => {
+    const mockMessages = (async function* () {
+      yield { type: "system", subtype: "init", session_id: "sess-no-effort" };
+      yield { type: "result", result: "done" };
+    })();
+
+    vi.mocked(query).mockReturnValue(mockMessages as ReturnType<typeof query>);
+
+    await backend.startSession({
+      prompt: "No effort specified",
+      workspacePath: "/tmp/ws",
+      mode: "autonomous",
+    });
+
+    const callArg = vi.mocked(query).mock.calls[0]?.[0] as {
+      options: Record<string, unknown>;
+    };
+    expect(callArg.options).not.toHaveProperty("effort");
+  });
+
   it("stopSession resolves without error", async () => {
     await expect(backend.stopSession("any-session-id")).resolves.toBeUndefined();
   });
