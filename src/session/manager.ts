@@ -9,6 +9,17 @@ import { renderPrompt } from "../engine/prompt.js";
 import { runHook } from "../workspace/hooks.js";
 
 /**
+ * Called after a session reaches a terminal state (completed or failed).
+ * Errors thrown by the callback are caught and logged — notifications must
+ * never prevent the workflow from recording its final status.
+ */
+export type FinishCallback = (
+  status: "completed" | "failed",
+  sessionId: string,
+  workflowName: string,
+) => Promise<void>;
+
+/**
  * Manages the full lifecycle of a workflow session:
  * concurrency check → workspace provisioning → hooks → prompt render →
  * agent start/resume/stop → metadata persistence.
@@ -26,7 +37,11 @@ export class SessionManager {
    * Returns `null` when the concurrency policy requires the run to be
    * skipped (or queued — queue mode is future work and currently also skips).
    */
-  async startWorkflow(wf: WorkflowConfig, backend: AgentBackend): Promise<SessionMetadata | null> {
+  async startWorkflow(
+    wf: WorkflowConfig,
+    backend: AgentBackend,
+    onFinish?: FinishCallback,
+  ): Promise<SessionMetadata | null> {
     // Concurrency check — count sessions that have not yet finished
     const existing = await this.store.findByWorkflow(wf.name);
     const running = existing.filter((s) => s.status === "running" || s.status === "pending");
@@ -88,7 +103,7 @@ export class SessionManager {
     // is updated to completed/failed once the agent finishes. Errors during
     // consumption are logged but do not propagate — the session is already
     // started and callers hold a reference to its metadata.
-    this.drainAgentEvents(sessionId, agentSession).catch((err) => {
+    this.drainAgentEvents(sessionId, agentSession, wf.name, onFinish).catch((err) => {
       this.logger.error("Failed to drain agent events", {
         session_id: sessionId,
         error: err instanceof Error ? err.message : String(err),
@@ -102,8 +117,17 @@ export class SessionManager {
    * Consumes the agent event stream and updates the session status when
    * the stream ends. If the last event is a "completed" type, the session
    * is marked as completed; otherwise it is marked as failed.
+   *
+   * After the store is updated, `onFinish` is called if provided.
+   * Any error from `onFinish` is caught and logged so that a notification
+   * failure never rolls back or corrupts the persisted session state.
    */
-  private async drainAgentEvents(sessionId: string, agentSession: AgentSession): Promise<void> {
+  private async drainAgentEvents(
+    sessionId: string,
+    agentSession: AgentSession,
+    workflowName: string,
+    onFinish?: FinishCallback,
+  ): Promise<void> {
     let lastEventType: string | undefined;
     for await (const event of agentSession.events) {
       lastEventType = event.type;
@@ -121,6 +145,17 @@ export class SessionManager {
       type: finalStatus,
     });
     this.logger.info("Session finished", { session_id: sessionId, status: finalStatus });
+
+    // Fire notification callback after store is updated so the session
+    // record is consistent regardless of notification outcome.
+    if (onFinish) {
+      await onFinish(finalStatus, sessionId, workflowName).catch((err) => {
+        this.logger.error("Notification callback failed", {
+          session_id: sessionId,
+          error: String(err),
+        });
+      });
+    }
   }
 
   /**

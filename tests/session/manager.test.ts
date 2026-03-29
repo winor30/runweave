@@ -9,6 +9,24 @@ import type { AgentBackend, AgentSession } from "../../src/agents/types.js";
 import type { WorkflowConfig } from "../../src/shared/types.js";
 import { createLogger } from "../../src/logging/logger.js";
 
+/**
+ * Polls `fn` until it stops throwing or the timeout (default 1000 ms) is
+ * reached. Used to wait for fire-and-forget background promises that involve
+ * async iteration + file I/O and therefore need multiple event-loop ticks.
+ */
+async function waitFor(fn: () => void, timeoutMs = 1000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (true) {
+    try {
+      fn();
+      return;
+    } catch (err) {
+      if (Date.now() >= deadline) throw err;
+      await new Promise<void>((resolve) => setTimeout(resolve, 20));
+    }
+  }
+}
+
 function createMockBackend(): AgentBackend {
   const mockSession: AgentSession = {
     id: "agent-sess-123",
@@ -18,6 +36,28 @@ function createMockBackend(): AgentBackend {
     events: {
       async *[Symbol.asyncIterator]() {
         await new Promise<void>(() => {});
+      },
+    },
+  };
+  return {
+    provider: "claude-code",
+    startSession: vi.fn().mockResolvedValue(mockSession),
+    resumeSession: vi.fn().mockResolvedValue(mockSession),
+    stopSession: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+/**
+ * Creates a backend whose event stream resolves immediately with a single
+ * "completed" event, so tests can observe drainAgentEvents finishing.
+ */
+function createFinishingMockBackend(lastEventType: "completed" | "other" = "completed"): AgentBackend {
+  const mockSession: AgentSession = {
+    id: "agent-sess-finish",
+    status: "running",
+    events: {
+      async *[Symbol.asyncIterator]() {
+        yield { type: lastEventType, data: {} };
       },
     },
   };
@@ -165,5 +205,63 @@ describe("SessionManager", () => {
     const events = await store.readEvents(session!.session_id);
     expect(events.length).toBeGreaterThan(0);
     expect(events[0]!.type).toBe("started");
+  });
+
+  it("calls onFinish callback after drainAgentEvents completes", async () => {
+    const finishingBackend = createFinishingMockBackend("completed");
+    const wf = createMinimalWorkflow({
+      workspace: { root: join(tempDir, "workspaces"), hooks: {} },
+    });
+
+    const onFinish = vi.fn().mockResolvedValue(undefined);
+    const session = await manager.startWorkflow(wf, finishingBackend, onFinish);
+
+    // Wait until the background drain promise fires the callback.
+    // Async iteration + file I/O require multiple event-loop ticks, so we
+    // poll until the assertion passes rather than sleeping a fixed amount.
+    await waitFor(() => {
+      expect(onFinish).toHaveBeenCalledWith("completed", session!.session_id, "test-wf");
+    });
+
+    // Store must already reflect the final status
+    const stored = await store.read(session!.session_id);
+    expect(stored!.status).toBe("completed");
+  });
+
+  it("marks session as failed when last event type is not 'completed'", async () => {
+    const finishingBackend = createFinishingMockBackend("other");
+    const wf = createMinimalWorkflow({
+      workspace: { root: join(tempDir, "workspaces"), hooks: {} },
+    });
+
+    const onFinish = vi.fn().mockResolvedValue(undefined);
+    const session = await manager.startWorkflow(wf, finishingBackend, onFinish);
+
+    await waitFor(() => {
+      expect(onFinish).toHaveBeenCalledWith("failed", session!.session_id, "test-wf");
+    });
+
+    const stored = await store.read(session!.session_id);
+    expect(stored!.status).toBe("failed");
+  });
+
+  it("still updates session status correctly when onFinish throws", async () => {
+    const finishingBackend = createFinishingMockBackend("completed");
+    const wf = createMinimalWorkflow({
+      workspace: { root: join(tempDir, "workspaces"), hooks: {} },
+    });
+
+    // Callback that throws to simulate a notification failure
+    const onFinish = vi.fn().mockRejectedValue(new Error("notifier down"));
+    const session = await manager.startWorkflow(wf, finishingBackend, onFinish);
+
+    // Callback was invoked despite the throw
+    await waitFor(() => {
+      expect(onFinish).toHaveBeenCalledTimes(1);
+    });
+
+    // Session status is still persisted correctly — callback error must not corrupt state
+    const stored = await store.read(session!.session_id);
+    expect(stored!.status).toBe("completed");
   });
 });
