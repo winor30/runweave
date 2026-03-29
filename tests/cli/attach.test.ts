@@ -5,11 +5,17 @@ import { join } from "node:path";
 import { attachCommand } from "../../src/cli/commands/attach.js";
 import { SessionStore } from "../../src/session/store.js";
 
+// Empty async generator used as a stand-in for AgentSession.events.
+// Recreated in beforeEach so each test gets a fresh iterator.
+function emptyAsyncEvents() {
+  return (async function* () {})();
+}
+
 // A single shared mock backend instance so assertions work across import boundaries.
 const sharedMockBackend = {
   provider: "claude-code" as const,
-  startSession: vi.fn().mockResolvedValue({ id: "agent-1", status: "running", events: [] }),
-  resumeSession: vi.fn().mockResolvedValue({ id: "agent-1", status: "running", events: [] }),
+  startSession: vi.fn(),
+  resumeSession: vi.fn(),
   stopSession: vi.fn().mockResolvedValue(undefined),
 };
 
@@ -29,6 +35,17 @@ describe("attach command", () => {
     });
     vi.spyOn(console, "error").mockImplementation((msg: string) => {
       consoleOutput.push(msg);
+    });
+    // Reset mocks so each test gets a fresh AsyncIterable for events
+    sharedMockBackend.startSession.mockResolvedValue({
+      id: "agent-1",
+      status: "running",
+      events: emptyAsyncEvents(),
+    });
+    sharedMockBackend.resumeSession.mockResolvedValue({
+      id: "agent-1",
+      status: "running",
+      events: emptyAsyncEvents(),
     });
     tempDir = await mkdtemp(join(tmpdir(), "runweave-attach-test-"));
     store = new SessionStore(tempDir);
@@ -66,5 +83,46 @@ describe("attach command", () => {
 
     expect(sharedMockBackend.resumeSession).toHaveBeenCalledWith("agent-live", "Hello agent");
     expect(consoleOutput.some((line) => line.toLowerCase().includes("sent"))).toBe(true);
+  });
+
+  it("passes an onFinish callback to resumeSession when --notify-webhook is given", async () => {
+    // Spy on SessionManager.resumeSession to capture the 4th argument
+    const { SessionManager } = await import("../../src/session/manager.js");
+    const resumeSpy = vi.spyOn(SessionManager.prototype, "resumeSession");
+
+    await attachCommand(
+      ["attach-abc", "--message", "ping", "--notify-webhook", "https://example.com/hook"],
+      tempDir,
+    );
+
+    expect(resumeSpy).toHaveBeenCalledTimes(1);
+    const [, , , onFinish] = resumeSpy.mock.calls[0]!;
+    // A callback must have been wired up
+    expect(typeof onFinish).toBe("function");
+  });
+
+  it("passes an onFinish callback to resumeSession when --notify-desktop is given", async () => {
+    const { SessionManager } = await import("../../src/session/manager.js");
+    const resumeSpy = vi.spyOn(SessionManager.prototype, "resumeSession");
+
+    await attachCommand(
+      ["attach-abc", "--message", "ping", "--notify-desktop"],
+      tempDir,
+    );
+
+    expect(resumeSpy).toHaveBeenCalledTimes(1);
+    const [, , , onFinish] = resumeSpy.mock.calls[0]!;
+    expect(typeof onFinish).toBe("function");
+  });
+
+  it("passes no onFinish when no notify flags are given", async () => {
+    const { SessionManager } = await import("../../src/session/manager.js");
+    const resumeSpy = vi.spyOn(SessionManager.prototype, "resumeSession");
+
+    await attachCommand(["attach-abc", "--message", "ping"], tempDir);
+
+    expect(resumeSpy).toHaveBeenCalledTimes(1);
+    const [, , , onFinish] = resumeSpy.mock.calls[0]!;
+    expect(onFinish).toBeUndefined();
   });
 });

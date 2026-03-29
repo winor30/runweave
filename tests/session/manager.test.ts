@@ -166,4 +166,74 @@ describe("SessionManager", () => {
     expect(events.length).toBeGreaterThan(0);
     expect(events[0]!.type).toBe("started");
   });
+
+  describe("resumeSession with onFinish", () => {
+    /** Creates a backend whose event stream emits a single event then closes. */
+    function createFinishingBackend(lastEventType: string): AgentBackend {
+      const completingSession: AgentSession = {
+        id: "agent-sess-finish",
+        status: "running",
+        events: {
+          async *[Symbol.asyncIterator]() {
+            yield { type: lastEventType, data: undefined };
+          },
+        },
+      };
+      return {
+        provider: "claude-code",
+        startSession: vi.fn().mockResolvedValue(completingSession),
+        resumeSession: vi.fn().mockResolvedValue(completingSession),
+        stopSession: vi.fn().mockResolvedValue(undefined),
+      };
+    }
+
+    it("calls onFinish with 'completed' after the event stream ends with a completed event", async () => {
+      const finishingBackend = createFinishingBackend("completed");
+      const wf = createMinimalWorkflow({
+        workspace: { root: join(tempDir, "workspaces"), hooks: {} },
+      });
+      const session = await manager.startWorkflow(wf, finishingBackend);
+
+      const onFinish = vi.fn().mockResolvedValue(undefined);
+      await manager.resumeSession(session!.session_id, "continue", finishingBackend, onFinish);
+
+      // drainAgentEvents runs in the background; wait for microtasks to settle
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(onFinish).toHaveBeenCalledOnce();
+      expect(onFinish).toHaveBeenCalledWith("completed", session!.session_id, "test-wf");
+    });
+
+    it("calls onFinish with 'failed' when the event stream ends without a completed event", async () => {
+      const finishingBackend = createFinishingBackend("error");
+      const wf = createMinimalWorkflow({
+        workspace: { root: join(tempDir, "workspaces"), hooks: {} },
+      });
+      const session = await manager.startWorkflow(wf, finishingBackend);
+
+      const onFinish = vi.fn().mockResolvedValue(undefined);
+      await manager.resumeSession(session!.session_id, "continue", finishingBackend, onFinish);
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(onFinish).toHaveBeenCalledWith("failed", session!.session_id, "test-wf");
+    });
+
+    it("does not change session status when onFinish throws", async () => {
+      const finishingBackend = createFinishingBackend("completed");
+      const wf = createMinimalWorkflow({
+        workspace: { root: join(tempDir, "workspaces"), hooks: {} },
+      });
+      const session = await manager.startWorkflow(wf, finishingBackend);
+
+      // onFinish throws but the session should still be marked completed
+      const onFinish = vi.fn().mockRejectedValue(new Error("notify exploded"));
+      await manager.resumeSession(session!.session_id, "continue", finishingBackend, onFinish);
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      const stored = await store.read(session!.session_id);
+      expect(stored!.status).toBe("completed");
+    });
+  });
 });

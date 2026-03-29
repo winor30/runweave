@@ -9,6 +9,17 @@ import { renderPrompt } from "../engine/prompt.js";
 import { runHook } from "../workspace/hooks.js";
 
 /**
+ * Called after a session's agent event stream finishes.
+ * Receives the terminal status, session ID, and workflow name so callers
+ * can dispatch notifications or trigger downstream side-effects.
+ */
+export type FinishCallback = (
+  status: "completed" | "failed",
+  sessionId: string,
+  workflowName: string,
+) => Promise<void>;
+
+/**
  * Manages the full lifecycle of a workflow session:
  * concurrency check → workspace provisioning → hooks → prompt render →
  * agent start/resume/stop → metadata persistence.
@@ -88,7 +99,7 @@ export class SessionManager {
     // is updated to completed/failed once the agent finishes. Errors during
     // consumption are logged but do not propagate — the session is already
     // started and callers hold a reference to its metadata.
-    this.drainAgentEvents(sessionId, agentSession).catch((err) => {
+    this.drainAgentEvents(sessionId, agentSession, wf.name).catch((err) => {
       this.logger.error("Failed to drain agent events", {
         session_id: sessionId,
         error: err instanceof Error ? err.message : String(err),
@@ -102,8 +113,17 @@ export class SessionManager {
    * Consumes the agent event stream and updates the session status when
    * the stream ends. If the last event is a "completed" type, the session
    * is marked as completed; otherwise it is marked as failed.
+   *
+   * `onFinish` is called after the status is persisted so that notification
+   * side-effects see the final state in the store. Any error thrown by
+   * `onFinish` is logged but does not change the recorded session status.
    */
-  private async drainAgentEvents(sessionId: string, agentSession: AgentSession): Promise<void> {
+  private async drainAgentEvents(
+    sessionId: string,
+    agentSession: AgentSession,
+    workflowName: string,
+    onFinish?: FinishCallback,
+  ): Promise<void> {
     let lastEventType: string | undefined;
     for await (const event of agentSession.events) {
       lastEventType = event.type;
@@ -121,22 +141,38 @@ export class SessionManager {
       type: finalStatus,
     });
     this.logger.info("Session finished", { session_id: sessionId, status: finalStatus });
+
+    if (onFinish) {
+      try {
+        await onFinish(finalStatus, sessionId, workflowName);
+      } catch (err) {
+        // Notification failure must not affect the persisted session status
+        this.logger.error("onFinish callback failed", {
+          session_id: sessionId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
   }
 
   /**
    * Resumes an existing session by forwarding a new prompt to the agent.
    *
    * Returns `null` if the session does not exist in the store.
+   *
+   * When `onFinish` is provided it is forwarded to `drainAgentEvents` and
+   * called once the resumed session's event stream terminates.
    */
   async resumeSession(
     sessionId: string,
     prompt: string,
     backend: AgentBackend,
+    onFinish?: FinishCallback,
   ): Promise<SessionMetadata | null> {
     const meta = await this.store.read(sessionId);
     if (!meta) return null;
 
-    await backend.resumeSession(meta.agent_session_id, prompt);
+    const agentSession = await backend.resumeSession(meta.agent_session_id, prompt);
     await this.store.updateStatus(sessionId, "running");
     await this.store.appendEvent(sessionId, {
       ts: new Date().toISOString(),
@@ -145,6 +181,16 @@ export class SessionManager {
     });
 
     this.logger.info("Session resumed", { session_id: sessionId });
+
+    // Drain events from the resumed session in the background so the caller
+    // gets the updated metadata immediately without blocking on the stream.
+    this.drainAgentEvents(sessionId, agentSession, meta.workflow, onFinish).catch((err) => {
+      this.logger.error("Failed to drain resumed agent events", {
+        session_id: sessionId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+
     return this.store.read(sessionId);
   }
 
