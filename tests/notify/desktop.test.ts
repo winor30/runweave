@@ -4,7 +4,7 @@ import type { NotifyEvent } from "../../src/notify/types.js";
 // Mock child_process before importing the module under test.
 // We also mock node:os to control platform detection.
 vi.mock("node:child_process", () => ({
-  exec: vi.fn(),
+  execFile: vi.fn(),
 }));
 
 vi.mock("node:os", () => ({
@@ -12,22 +12,22 @@ vi.mock("node:os", () => ({
 }));
 
 describe("DesktopNotifier", () => {
-  // Re-import after mocks are in place. vitest hoists vi.mock() calls, so
-  // dynamic import inside each test is not required; a top-level import would
-  // be fine too, but dynamic import makes the mock-before-import intent clear.
-  let execMock: ReturnType<typeof vi.fn>;
+  let execFileMock: ReturnType<typeof vi.fn>;
   let platformMock: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     const cp = await import("node:child_process");
     const os = await import("node:os");
-    execMock = cp.exec as unknown as ReturnType<typeof vi.fn>;
+    execFileMock = cp.execFile as unknown as ReturnType<typeof vi.fn>;
     platformMock = os.platform as unknown as ReturnType<typeof vi.fn>;
 
-    // Default: exec resolves successfully (util.promisify wraps the callback style).
-    // DesktopNotifier uses promisify(exec), so we simulate the node-style callback.
-    execMock.mockImplementation(
-      (_cmd: string, cb: (err: null, stdout: string, stderr: string) => void) => {
+    // Default: execFile resolves successfully via promisify's callback convention.
+    execFileMock.mockImplementation(
+      (
+        _file: string,
+        _args: string[],
+        cb: (err: null, stdout: string, stderr: string) => void,
+      ) => {
         cb(null, "", "");
       },
     );
@@ -52,14 +52,41 @@ describe("DesktopNotifier", () => {
 
     await notifier.send(event);
 
-    expect(execMock).toHaveBeenCalledOnce();
-    const cmd: string = execMock.mock.calls[0][0];
-    expect(cmd).toContain("osascript");
-    expect(cmd).toContain("runweave: fix-issues");
-    expect(cmd).toContain("[completed] All tasks done");
+    expect(execFileMock).toHaveBeenCalledOnce();
+    const [file, args] = execFileMock.mock.calls[0] as [string, string[]];
+    expect(file).toBe("osascript");
+    expect(args[0]).toBe("-e");
+    expect(args[1]).toContain("runweave: fix-issues");
+    expect(args[1]).toContain("[completed] All tasks done");
   });
 
-  it("calls notify-send on Linux", async () => {
+  it("escapes double quotes in title and body for AppleScript on macOS", async () => {
+    platformMock.mockReturnValue("darwin");
+
+    const { DesktopNotifier } = await import("../../src/notify/desktop.js");
+    const notifier = new DesktopNotifier();
+
+    const event: NotifyEvent = {
+      type: "failed",
+      workflow: 'workflow "alpha"',
+      sessionId: "sess-005",
+      message: 'Error: "disk full"',
+    };
+
+    await notifier.send(event);
+
+    expect(execFileMock).toHaveBeenCalledOnce();
+    const [file, args] = execFileMock.mock.calls[0] as [string, string[]];
+    expect(file).toBe("osascript");
+    // Double quotes in workflow/message must be backslash-escaped inside the
+    // AppleScript string so the script remains syntactically valid.
+    expect(args[1]).toContain('runweave: workflow \\"alpha\\"');
+    expect(args[1]).toContain('[failed] Error: \\"disk full\\"');
+    // The raw (unescaped) quote characters must not appear unescaped.
+    expect(args[1]).not.toMatch(/runweave: workflow "[^\\]/);
+  });
+
+  it("calls notify-send with title and body as separate arguments on Linux", async () => {
     platformMock.mockReturnValue("linux");
 
     const { DesktopNotifier } = await import("../../src/notify/desktop.js");
@@ -74,19 +101,23 @@ describe("DesktopNotifier", () => {
 
     await notifier.send(event);
 
-    expect(execMock).toHaveBeenCalledOnce();
-    const cmd: string = execMock.mock.calls[0][0];
-    expect(cmd).toContain("notify-send");
-    expect(cmd).toContain("runweave: deploy");
-    expect(cmd).toContain("[failed] Build failed");
+    expect(execFileMock).toHaveBeenCalledOnce();
+    const [file, args] = execFileMock.mock.calls[0] as [string, string[]];
+    expect(file).toBe("notify-send");
+    expect(args[0]).toBe("runweave: deploy");
+    expect(args[1]).toBe("[failed] Build failed");
   });
 
   it("silently ignores notify-send errors on Linux", async () => {
     platformMock.mockReturnValue("linux");
 
-    // Simulate notify-send not being available.
-    execMock.mockImplementation(
-      (_cmd: string, cb: (err: Error, stdout: string, stderr: string) => void) => {
+    // Simulate notify-send not being installed.
+    execFileMock.mockImplementation(
+      (
+        _file: string,
+        _args: string[],
+        cb: (err: Error, stdout: string, stderr: string) => void,
+      ) => {
         cb(new Error("notify-send: command not found"), "", "");
       },
     );
@@ -101,15 +132,19 @@ describe("DesktopNotifier", () => {
       message: "Approval needed",
     };
 
-    // Must not throw.
+    // Must not throw even when notify-send is unavailable.
     await expect(notifier.send(event)).resolves.toBeUndefined();
   });
 
   it("propagates osascript errors on macOS", async () => {
     platformMock.mockReturnValue("darwin");
 
-    execMock.mockImplementation(
-      (_cmd: string, cb: (err: Error, stdout: string, stderr: string) => void) => {
+    execFileMock.mockImplementation(
+      (
+        _file: string,
+        _args: string[],
+        cb: (err: Error, stdout: string, stderr: string) => void,
+      ) => {
         cb(new Error("osascript failed"), "", "");
       },
     );
