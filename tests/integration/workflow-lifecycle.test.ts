@@ -24,18 +24,23 @@ const fixtureMinimal = resolve(import.meta.dirname, "../fixtures/workflows/minim
 // --- Stub agent backend --------------------------------------------------
 
 function makeStubBackend(): AgentBackend {
+  // Never-resolving stream keeps the session in "running" state for the
+  // lifetime of each test, which is required for concurrency checks to work
+  // reliably regardless of how many awaits precede drainAgentEvents.
+  const neverEndingSession = {
+    id: "stub-agent-session",
+    status: "running" as const,
+    events: {
+      // oxlint-disable-next-line require-yield -- intentional: stream never resolves to keep session "running"
+      async *[Symbol.asyncIterator]() {
+        await new Promise<void>(() => {});
+      },
+    },
+  };
   return {
     provider: "claude-code",
-    startSession: vi.fn().mockResolvedValue({
-      id: "stub-agent-session",
-      status: "running",
-      events: (async function* () {})(),
-    }),
-    resumeSession: vi.fn().mockResolvedValue({
-      id: "stub-agent-session",
-      status: "running",
-      events: (async function* () {})(),
-    }),
+    startSession: vi.fn().mockResolvedValue(neverEndingSession),
+    resumeSession: vi.fn().mockResolvedValue(neverEndingSession),
     stopSession: vi.fn().mockResolvedValue(undefined),
   };
 }

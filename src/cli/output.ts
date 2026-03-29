@@ -27,21 +27,80 @@ export function formatTable(rows: Record<string, string>[], columns: string[]): 
   return [header, separator, body].join("\n");
 }
 
+function formatToolInput(tool: string, input: Record<string, unknown>): string {
+  if (tool === "Bash") {
+    return typeof input["command"] === "string"
+      ? input["command"]
+      : JSON.stringify(input).slice(0, 60);
+  }
+  if (tool === "Read" || tool === "Glob") {
+    const path = input["file_path"] ?? input["pattern"] ?? input["path"];
+    return typeof path === "string" ? path : JSON.stringify(input).slice(0, 60);
+  }
+  if (tool === "Grep") {
+    const pattern = input["pattern"] ?? input["path"];
+    return typeof pattern === "string" ? pattern : JSON.stringify(input).slice(0, 60);
+  }
+  const raw = JSON.stringify(input);
+  return raw.length > 60 ? raw.slice(0, 60) + "…" : raw;
+}
+
 /**
  * Formats a single session event for human-readable log output.
  *
  * The timestamp is shortened to HH:MM:SS for brevity; the type is
- * uppercased to stand out visually. Extra fields are appended as key=value
- * pairs so the output stays on one line per event.
+ * uppercased and padded to stand out visually. Per-type fields are
+ * formatted to highlight the most relevant data for each event kind.
  */
 export function formatEvent(event: Record<string, unknown>): string {
   const ts = typeof event["ts"] === "string" ? event["ts"].slice(11, 19) : "??:??:??";
-  const type = typeof event["type"] === "string" ? event["type"].toUpperCase() : "UNKNOWN";
+  const type = typeof event["type"] === "string" ? event["type"] : "unknown";
+  const label = type.toUpperCase();
 
-  const extras = Object.entries(event)
-    .filter(([k]) => k !== "ts" && k !== "type")
-    .map(([k, v]) => `${k}=${String(v)}`)
-    .join(" ");
+  switch (type) {
+    case "prompt": {
+      const raw = typeof event["text"] === "string" ? event["text"] : "";
+      const text = raw.length > 120 ? raw.slice(0, 120) + "…" : raw;
+      return `[${ts}] ${label.padEnd(14)} ${text}`;
+    }
 
-  return extras ? `[${ts}] ${type}  ${extras}` : `[${ts}] ${type}`;
+    case "assistant_text": {
+      const data = (event["data"] ?? {}) as Record<string, unknown>;
+      const raw = typeof data["text"] === "string" ? data["text"] : "";
+      const text = raw.length > 80 ? raw.slice(0, 80) + "…" : raw;
+      return `[${ts}] ${label.padEnd(14)} text=${text}`;
+    }
+
+    case "tool_use": {
+      const data = (event["data"] ?? {}) as Record<string, unknown>;
+      const tool = typeof data["tool"] === "string" ? data["tool"] : "unknown";
+      const input =
+        data["input"] !== null && typeof data["input"] === "object"
+          ? formatToolInput(tool, data["input"] as Record<string, unknown>)
+          : String(data["input"] ?? "");
+      return `[${ts}] ${label.padEnd(14)} tool=${tool} input=${input}`;
+    }
+
+    case "completed": {
+      const data = (event["data"] ?? {}) as Record<string, unknown>;
+      const parts: string[] = [];
+      if (data["turns"] !== undefined) parts.push(`turns=${String(data["turns"])}`);
+      if (data["cost_usd"] !== undefined) parts.push(`cost_usd=${String(data["cost_usd"])}`);
+      if (typeof data["finalResponse"] === "string") {
+        const fr = data["finalResponse"];
+        parts.push(`response=${fr.length > 60 ? fr.slice(0, 60) + "…" : fr}`);
+      }
+      return parts.length > 0
+        ? `[${ts}] ${label.padEnd(14)} ${parts.join(" ")}`
+        : `[${ts}] ${label}`;
+    }
+
+    default: {
+      const extras = Object.entries(event)
+        .filter(([k]) => k !== "ts" && k !== "type")
+        .map(([k, v]) => `${k}=${String(v)}`)
+        .join(" ");
+      return extras ? `[${ts}] ${label.padEnd(14)} ${extras}` : `[${ts}] ${label}`;
+    }
+  }
 }

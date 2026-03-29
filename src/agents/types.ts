@@ -24,6 +24,12 @@ export interface StartSessionOptions {
 }
 
 export interface AgentEvent {
-  type: "message" | "tool_use" | "error" | "status_change" | "completed";
+  type:
+    | "message" // backward-compat fallback for unrecognized SDK messages
+    | "assistant_text" // NEW — assistant prose turn
+    | "tool_use"
+    | "error"
+    | "status_change"
+    | "completed";
   data: Record<string, unknown>;
 }
