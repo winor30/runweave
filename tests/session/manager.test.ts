@@ -13,7 +13,13 @@ function createMockBackend(): AgentBackend {
   const mockSession: AgentSession = {
     id: "agent-sess-123",
     status: "running",
-    events: { async *[Symbol.asyncIterator]() {} },
+    // Never-resolving stream: the session stays "running" for the lifetime of
+    // the test, which is the realistic state that concurrency checks depend on.
+    events: {
+      async *[Symbol.asyncIterator]() {
+        await new Promise<void>(() => {});
+      },
+    },
   };
   return {
     provider: "claude-code",
@@ -53,8 +59,6 @@ describe("SessionManager", () => {
   });
 
   afterEach(async () => {
-    // Small delay to let drainAgentEvents background task finish writing
-    await new Promise((r) => setTimeout(r, 50));
     await rm(tempDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   });
 
