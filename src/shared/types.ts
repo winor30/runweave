@@ -13,11 +13,20 @@ export const AGENT_MODES = ["autonomous", "full-auto", "supervised", "readonly"]
 
 export const AGENT_BACKENDS = ["claude-code", "codex"] as const;
 
+// Per-backend valid effort levels — single source of truth for each backend.
+// AGENT_EFFORT_LEVELS is their union and is used only for schema enum validation.
+// Cross-backend values (e.g. "max" on codex) are rejected at parse time.
+export const CLAUDE_VALID_EFFORTS = ["low", "medium", "high", "max"] as const;
+export const CODEX_VALID_EFFORTS = ["minimal", "low", "medium", "high", "xhigh"] as const;
+
+export const AGENT_EFFORT_LEVELS = ["minimal", "low", "medium", "high", "max", "xhigh"] as const;
+
 // --- Derived Types ---
 
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
 export type AgentMode = (typeof AGENT_MODES)[number];
 export type AgentBackendName = (typeof AGENT_BACKENDS)[number];
+export type AgentEffortLevel = (typeof AGENT_EFFORT_LEVELS)[number];
 
 // --- Trigger ---
 
@@ -29,6 +38,7 @@ export interface AgentConfig {
   backend: AgentBackendName;
   mode: AgentMode;
   model?: string;
+  effort?: AgentEffortLevel;
   provider_options: Record<string, unknown>;
 }
 

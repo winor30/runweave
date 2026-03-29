@@ -60,6 +60,7 @@ export class SessionManager {
       workspacePath: wsPath,
       mode: wf.agent.mode,
       model: wf.agent.model,
+      effort: wf.agent.effort,
       providerOptions: wf.agent.provider_options,
     });
 

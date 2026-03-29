@@ -1,8 +1,14 @@
 // src/agents/codex.ts
 import { Codex } from "@openai/codex-sdk";
-import type { ThreadOptions, ApprovalMode, SandboxMode } from "@openai/codex-sdk";
+import type {
+  ModelReasoningEffort,
+  ThreadOptions,
+  ApprovalMode,
+  SandboxMode,
+} from "@openai/codex-sdk";
 import type { AgentBackend, AgentSession, AgentEvent, StartSessionOptions } from "./types.js";
-import type { AgentMode } from "../shared/types.js";
+import { CODEX_VALID_EFFORTS } from "../shared/types.js";
+import type { AgentEffortLevel, AgentMode } from "../shared/types.js";
 
 interface CodexModeConfig {
   approvalPolicy: ApprovalMode;
@@ -27,6 +33,18 @@ function mapModeToCodexConfig(mode: AgentMode): CodexModeConfig {
   }
 }
 
+// Validates and casts effort to the Codex-supported subset (ModelReasoningEffort).
+// Schema validation normally rejects unsupported values before this point;
+// the throw here guards against bypassed validation.
+const CODEX_EFFORT_SET = new Set<string>(CODEX_VALID_EFFORTS);
+
+function mapEffortToCodex(effort: AgentEffortLevel): ModelReasoningEffort {
+  if (!CODEX_EFFORT_SET.has(effort)) {
+    throw new Error(`effort '${effort}' is not supported by codex backend`);
+  }
+  return effort as ModelReasoningEffort;
+}
+
 export class CodexBackend implements AgentBackend {
   readonly provider = "codex" as const;
 
@@ -38,6 +56,7 @@ export class CodexBackend implements AgentBackend {
       approvalPolicy: config.approvalPolicy,
       sandboxMode: config.sandboxMode,
       ...(opts.model !== undefined ? { model: opts.model } : {}),
+      ...(opts.effort !== undefined ? { modelReasoningEffort: mapEffortToCodex(opts.effort) } : {}),
     };
 
     const thread = codex.startThread(threadOptions);

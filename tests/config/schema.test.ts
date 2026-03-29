@@ -78,4 +78,71 @@ describe("workflowSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("accepts effort values supported by claude-code backend", () => {
+    const levels = ["low", "medium", "high", "max"] as const;
+    for (const effort of levels) {
+      const result = workflowSchema.safeParse({
+        name: "test",
+        prompt: "test",
+        agent: { backend: "claude-code", effort },
+      });
+      expect(result.success, `claude-code effort '${effort}' should be valid`).toBe(true);
+      if (result.success) {
+        expect(result.data.agent.effort).toBe(effort);
+      }
+    }
+  });
+
+  it("accepts effort values supported by codex backend", () => {
+    const levels = ["minimal", "low", "medium", "high", "xhigh"] as const;
+    for (const effort of levels) {
+      const result = workflowSchema.safeParse({
+        name: "test",
+        prompt: "test",
+        agent: { backend: "codex", effort },
+      });
+      expect(result.success, `codex effort '${effort}' should be valid`).toBe(true);
+      if (result.success) {
+        expect(result.data.agent.effort).toBe(effort);
+      }
+    }
+  });
+
+  it("rejects Codex-only effort values for claude-code backend", () => {
+    for (const effort of ["minimal", "xhigh"] as const) {
+      const result = workflowSchema.safeParse({
+        name: "test",
+        prompt: "test",
+        agent: { backend: "claude-code", effort },
+      });
+      expect(result.success, `claude-code should reject effort '${effort}'`).toBe(false);
+    }
+  });
+
+  it("rejects Claude-only effort values for codex backend", () => {
+    const result = workflowSchema.safeParse({
+      name: "test",
+      prompt: "test",
+      agent: { backend: "codex", effort: "max" },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid effort level", () => {
+    const result = workflowSchema.safeParse({
+      name: "test",
+      prompt: "test",
+      agent: { effort: "ultra" },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("defaults effort to undefined when omitted", () => {
+    const result = workflowSchema.safeParse({ name: "test", prompt: "test" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.agent.effort).toBeUndefined();
+    }
+  });
 });

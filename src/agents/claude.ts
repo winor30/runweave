@@ -1,7 +1,8 @@
 // src/agents/claude.ts
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentBackend, AgentSession, AgentEvent, StartSessionOptions } from "./types.js";
-import type { AgentMode } from "../shared/types.js";
+import { CLAUDE_VALID_EFFORTS } from "../shared/types.js";
+import type { AgentEffortLevel, AgentMode } from "../shared/types.js";
 
 // Maps runweave AgentMode to the Claude Agent SDK permissionMode and related options.
 // autonomous / full-auto both use bypassPermissions so the agent never blocks waiting
@@ -29,6 +30,19 @@ function mapModeToClaudeOptions(mode: AgentMode): Record<string, unknown> {
   }
 }
 
+// Validates and casts effort to the Claude-supported subset.
+// Schema validation normally rejects unsupported values before this point;
+// the throw here guards against bypassed validation.
+const CLAUDE_EFFORT_SET = new Set<string>(CLAUDE_VALID_EFFORTS);
+type ClaudeEffortLevel = (typeof CLAUDE_VALID_EFFORTS)[number];
+
+function mapEffortToClaude(effort: AgentEffortLevel): ClaudeEffortLevel {
+  if (!CLAUDE_EFFORT_SET.has(effort)) {
+    throw new Error(`effort '${effort}' is not supported by claude-code backend`);
+  }
+  return effort as ClaudeEffortLevel;
+}
+
 export class ClaudeBackend implements AgentBackend {
   readonly provider = "claude-code" as const;
 
@@ -37,6 +51,7 @@ export class ClaudeBackend implements AgentBackend {
       cwd: opts.workspacePath,
       ...mapModeToClaudeOptions(opts.mode),
       ...(opts.model !== undefined ? { model: opts.model } : {}),
+      ...(opts.effort !== undefined ? { effort: mapEffortToClaude(opts.effort) } : {}),
       ...opts.providerOptions,
     };
 

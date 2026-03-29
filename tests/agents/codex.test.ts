@@ -171,6 +171,38 @@ describe("CodexBackend", () => {
     expect(callArg).not.toHaveProperty("model");
   });
 
+  it("passes effort as modelReasoningEffort to threadOptions when provided", async () => {
+    await backend.startSession({
+      prompt: "High effort task",
+      workspacePath: "/tmp/ws",
+      mode: "autonomous",
+      effort: "high",
+    });
+
+    const codexInstance = vi.mocked(Codex).mock.results[0]?.value as {
+      startThread: ReturnType<typeof vi.fn>;
+    };
+    expect(codexInstance.startThread).toHaveBeenCalledWith(
+      expect.objectContaining({
+        modelReasoningEffort: "high",
+      }),
+    );
+  });
+
+  it("omits modelReasoningEffort from threadOptions when effort is not provided", async () => {
+    await backend.startSession({
+      prompt: "No effort",
+      workspacePath: "/tmp/ws",
+      mode: "autonomous",
+    });
+
+    const codexInstance = vi.mocked(Codex).mock.results[0]?.value as {
+      startThread: ReturnType<typeof vi.fn>;
+    };
+    const callArg = codexInstance.startThread.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(callArg).not.toHaveProperty("modelReasoningEffort");
+  });
+
   it("stopSession resolves without error", async () => {
     await expect(backend.stopSession("thread-abc")).resolves.toBeUndefined();
   });
